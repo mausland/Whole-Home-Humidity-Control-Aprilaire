@@ -1,0 +1,77 @@
+type: custom:apexcharts-card
+header:
+  show: true
+  title: Upstairs vs Downstairs Humidity
+  show_states: true
+  colorize_states: true
+graph_span: 24h
+now:
+  show: true
+span:
+  start: hour
+  offset: "-24h"
+yaxis:
+  - id: humidity
+    min: 20
+    max: 80
+    decimals: 0
+series:
+  - entity: sensor.%Home%_outdoor_temperature
+    name: Outside
+    show:
+      in_header: true
+      in_chart: false
+  - entity: sensor.upstairs_temp_humidity_humidity
+    name: Upstairs
+    yaxis_id: humidity
+    type: line
+    stroke_width: 2
+    curve: smooth
+    group_by:
+      func: avg
+      duration: 10min
+    float_precision: 1
+    show:
+      legend_value: true
+  - entity: sensor.downstairs_temp_humidity_humidity
+    name: Downstairs
+    yaxis_id: humidity
+    type: line
+    stroke_width: 2
+    curve: smooth
+    group_by:
+      func: avg
+      duration: 10min
+    float_precision: 1
+    show:
+      legend_value: true
+apex_config:
+  chart:
+    animations:
+      enabled: true
+  stroke:
+    width: 2
+  dataLabels:
+    enabled: false
+  legend:
+    position: top
+    horizontalAlign: center
+  tooltip:
+    shared: true
+    x:
+      show: true
+  yaxis:
+    - tickAmount: 6
+      labels:
+        formatter: |
+          EVAL:(val) => { return Math.round(val) + " %"; }
+  annotations:
+    yaxis:
+      - "y": 40
+        y2: 0
+        borderColor: rgba(0,0,0,0)
+        fillColor: rgba(0, 123, 255, 0.15)
+      - "y": 100
+        y2: 60
+        borderColor: rgba(0,0,0,0)
+        fillColor: rgba(255, 0, 0, 0.15)

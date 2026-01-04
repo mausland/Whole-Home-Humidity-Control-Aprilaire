@@ -1,0 +1,57 @@
+template:
+  - sensor:
+      # Average indoor humidity from both floors
+      - name: "Whole House Humidity"
+        unique_id: whole_house_humidity_avg
+        unit_of_measurement: "%"
+        state: >
+          {% set h1 = states('sensor.downstairs_temp_humidity_humidity')|float(none) %}
+          {% set h2 = states('sensor.upstairs_temp_humidity_humidity')|float(none) %}
+          {% if h1 is not none and h2 is not none %}
+            {{ ((h1 + h2) / 2) | round(1) }}
+          {% elif h1 is not none %}
+            {{ h1 | round(1) }}
+          {% elif h2 is not none %}
+            {{ h2 | round(1) }}
+          {% else %}
+            {{ 'unknown' }}
+          {% endif %}
+
+      # Average outdoor temperature from multiple weather stations
+      - name: "%Home% Outdoor Temperature"
+        unique_id: avg_outdoor_temp
+        unit_of_measurement: "°F"
+        state: >
+          {% set temps = [
+            states('sensor.station_1_temperature') | float(0),
+            states('sensor.station_2_temperature') | float(0),
+            states('sensor.station_3_temperature') | float(0),
+            states('sensor.station_4_temperature') | float(0),
+            states('sensor.station_5_temperature') | float(0)
+          ] %}
+          {% set valid_temps = temps | select('ne', 0) | list %}
+          {% if valid_temps | length > 0 %}
+            {{ ((valid_temps | sum) / (valid_temps | length)) | round(1) }}
+          {% else %}
+            unknown
+          {% endif %}
+
+      # Calculate target humidity based on outdoor temperature
+      - name: "Target Indoor Humidity"
+        unique_id: target_indoor_humidity
+        unit_of_measurement: "%"
+        state: >
+          {% set t = states('sensor.%home%_outdoor_temperature') | float(999) %}
+          {% if t == 999 %}
+            unknown
+          {% elif t <= 0 %}
+            25
+          {% elif t <= 10 %}
+            30
+          {% elif t <= 20 %}
+            35
+          {% elif t <= 30 %}
+            40
+          {% else %}
+            45
+          {% endif %}
