@@ -1,7 +1,7 @@
 type: custom:apexcharts-card
 header:
   show: true
-  title: Upstairs vs Downstairs Humidity
+  title: Indoor Humidity vs Target
   show_states: true
   colorize_states: true
 graph_span: 24h
@@ -16,7 +16,7 @@ yaxis:
     max: 80
     decimals: 0
 series:
-  - entity: sensor.%Home%_outdoor_temperature
+  - entity: sensor.average_outdoor_temperature
     name: Outside
     show:
       in_header: true
@@ -43,6 +43,17 @@ series:
       func: avg
       duration: 10min
     float_precision: 1
+    show:
+      legend_value: true
+  - entity: sensor.target_indoor_humidity
+    name: Target
+    yaxis_id: humidity
+    type: line
+    stroke_width: 2
+    stroke_dash: 6
+    curve: stepline
+    color: "#7f7f7f"
+    float_precision: 0
     show:
       legend_value: true
 apex_config:
