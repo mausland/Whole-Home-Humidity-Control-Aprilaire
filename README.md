@@ -1,4 +1,4 @@
-# Automated Whole-House Humidity Control with Home Assistant
+# Convert an Aprilaire 400 to a 600 (plus optional Home Assistant control
 
 A smart home automation project that converts an Aprilaire 400 humidifier to Aprilaire 600 functionality with intelligent, temperature-based humidity control using Home Assistant.
 
