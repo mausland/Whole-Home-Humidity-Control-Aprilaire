@@ -87,7 +87,9 @@ The solution involved both a hardware upgrade and complete automation of humidit
 
 6. **Install Shelly 1 Gen4 Relay**
    - Wire the Shelly relay to control the humidifier water solenoid valve
-      - We intercept the furnace 24V hot (R) and route it through the Shelly dry-contact relay to feed the water solenoid, while furnace common (C) connects directly to the water solenoid return.
+      - The Shelly's dry contact switches the heat-call signal (W1/B on the EWC Ultra-Zone NCM-300 zone panel) to the water solenoid. Common (C) connects directly to the solenoid return.
+      - The solenoid only opens when the furnace is calling for heat AND Home Assistant calls for humidity.
+      - No zone panel? Use the furnace board's W or HUM terminal. Never use R, which is hot all the time and would run water to the drain even when the furnace is idle.
    - Connect to 12V power supply
    - Configure for dry contact operation
    - Integrate with Home Assistant
