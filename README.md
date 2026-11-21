@@ -11,6 +11,8 @@ A smart home automation project that converts an Aprilaire 400 humidifier to Apr
 - [Home Assistant Configuration](#home-assistant-configuration)
 - [How It Works](#how-it-works)
 - [ApexCharts Humidity Tracking](#apexcharts-humidity-tracking)
+- [Shelly failsafe settings](#shelly-failsafe-settings)
+- [Safety](#safety)
 - [Results](#results)
 - [Lessons Learned](#lessons-learned)
 
@@ -114,68 +116,87 @@ The solution involved both a hardware upgrade and complete automation of humidit
 
 ## Home Assistant Configuration
 
-### Template Sensors
+### Template and statistics sensors
 
-Add these template sensors to your `configuration.yaml` or `templates.yaml` Replace entity names and %Home% with your appropriate names:
+Add these to `configuration.yaml`, or drop `humidity_templates.yaml` into your [packages](https://www.home-assistant.io/docs/configuration/packages/) folder. Rename the `sensor.*` entity IDs to match your own devices.
+
+The file creates 4 sensors:
+- `sensor.whole_house_humidity`: average of the 2 indoor sensors
+- `sensor.average_outdoor_temperature`: average of the weather stations that are reporting
+- `sensor.outdoor_temperature_1h_average`: 1-hour rolling mean of the outdoor average
+- `sensor.target_indoor_humidity`: target humidity calculated from the 1-hour mean
+
+Each template sensor goes `unavailable` when its inputs are offline, instead of reporting a fake value. They also carry `device_class` and `state_class`, so Home Assistant keeps long-term statistics for them.
 
 ```yaml
 template:
   - sensor:
       # Average indoor humidity from both floors
+      # Uses whichever sensors are reporting; unavailable if neither is
       - name: "Whole House Humidity"
         unique_id: whole_house_humidity_avg
         unit_of_measurement: "%"
+        device_class: humidity
+        state_class: measurement
+        availability: >
+          {{ has_value('sensor.downstairs_temp_humidity_humidity')
+             or has_value('sensor.upstairs_temp_humidity_humidity') }}
         state: >
-          {% set h1 = states('sensor.downstairs_temp_humidity_humidity')|float(none) %}
-          {% set h2 = states('sensor.upstairs_temp_humidity_humidity')|float(none) %}
-          {% if h1 is not none and h2 is not none %}
-            {{ ((h1 + h2) / 2) | round(1) }}
-          {% elif h1 is not none %}
-            {{ h1 | round(1) }}
-          {% elif h2 is not none %}
-            {{ h2 | round(1) }}
-          {% else %}
-            {{ 'unknown' }}
-          {% endif %}
+          {% set vals = [
+            states('sensor.downstairs_temp_humidity_humidity'),
+            states('sensor.upstairs_temp_humidity_humidity')
+          ] | select('is_number') | map('float') | list %}
+          {{ ((vals | sum) / (vals | length)) | round(1) }}
 
       # Average outdoor temperature from multiple weather stations
-      - name: "%Home% Outdoor Temperature"
+      # Skips stations that are offline; a real 0°F reading still counts
+      - name: "Average Outdoor Temperature"
         unique_id: avg_outdoor_temp
         unit_of_measurement: "°F"
+        device_class: temperature
+        state_class: measurement
+        availability: >
+          {{ [
+            states('sensor.station_1_temperature'),
+            states('sensor.station_2_temperature'),
+            states('sensor.station_3_temperature'),
+            states('sensor.station_4_temperature'),
+            states('sensor.station_5_temperature')
+          ] | select('is_number') | list | length > 0 }}
         state: >
           {% set temps = [
-            states('sensor.station_1_temperature') | float(0),
-            states('sensor.station_2_temperature') | float(0),
-            states('sensor.station_3_temperature') | float(0),
-            states('sensor.station_4_temperature') | float(0),
-            states('sensor.station_5_temperature') | float(0)
-          ] %}
-          {% set valid_temps = temps | select('ne', 0) | list %}
-          {% if valid_temps | length > 0 %}
-            {{ ((valid_temps | sum) / (valid_temps | length)) | round(1) }}
-          {% else %}
-            unknown
-          {% endif %}
+            states('sensor.station_1_temperature'),
+            states('sensor.station_2_temperature'),
+            states('sensor.station_3_temperature'),
+            states('sensor.station_4_temperature'),
+            states('sensor.station_5_temperature')
+          ] | select('is_number') | map('float') | list %}
+          {{ ((temps | sum) / (temps | length)) | round(1) }}
 
-      # Calculate target humidity based on outdoor temperature
+      # Target humidity from the 1-hour outdoor average
+      # Linear: 25% at 0°F, rising 1% per 2°F, capped at 45% (40°F and up)
       - name: "Target Indoor Humidity"
         unique_id: target_indoor_humidity
         unit_of_measurement: "%"
+        device_class: humidity
+        state_class: measurement
+        availability: "{{ has_value('sensor.outdoor_temperature_1h_average') }}"
         state: >
-          {% set t = states('sensor.%home%_outdoor_temperature') | float(999) %}
-          {% if t == 999 %}
-            unknown
-          {% elif t <= 0 %}
-            25
-          {% elif t <= 10 %}
-            30
-          {% elif t <= 20 %}
-            35
-          {% elif t <= 30 %}
-            40
-          {% else %}
-            45
-          {% endif %}
+          {% set t = states('sensor.outdoor_temperature_1h_average') | float %}
+          {{ [45, [25, 25 + t / 2] | max] | min | round(0) | int }}
+
+sensor:
+  # 1-hour rolling mean of outdoor temperature
+  # Keeps the target from flipping back and forth on short temperature swings
+  - platform: statistics
+    name: "Outdoor Temperature 1h Average"
+    unique_id: outdoor_temp_1h_avg
+    entity_id: sensor.average_outdoor_temperature
+    state_characteristic: mean
+    max_age:
+      hours: 1
+    sampling_size: 200
+    precision: 1
 ```
 
 ### Automation
@@ -223,21 +244,27 @@ variables:
 
 ### Temperature-Based Humidity Targets
 
-The system automatically adjusts target humidity based on outdoor temperature to prevent condensation on windows while maximizing comfort:
+The target drops as it gets colder outside, so the windows don't fog or frost over. It follows a straight line: 25% at 0°F, rising 1% for every 2°F, and capped at 45% from 40°F up.
 
-| Outdoor Temperature        | Target Indoor Humidity |
-|----------------------------|------------------------|
-| <= 0F (-18C)               | 25%                    |
-| 1-10F (-17C to -12C)       | 30%                    |
-| 11-20F (-12C to -7C)       | 35%                    |
-| 21-30F (-6C to -1C)        | 40%                    |
-| > 30F (>-1C)               | 45%                    |
+`target = 25 + (outdoor °F / 2)`, held between 25% and 45%
+
+| 1-hour outdoor average | Target indoor humidity |
+|------------------------|------------------------|
+| 0°F (-18°C) or colder  | 25%                    |
+| 10°F (-12°C)           | 30%                    |
+| 20°F (-7°C)            | 35%                    |
+| 30°F (-1°C)            | 40%                    |
+| 40°F (4°C) or warmer   | 45%                    |
+
+An earlier version used 5% steps (25, 30, 35, 40, 45). The straight line avoids a sudden 5% jump when the temperature crosses a step, and the 1-hour average keeps the target from flipping back and forth on short temperature swings.
+
+If your windows still condense, lower the 25 at the start of the formula by a few points.
 
 ### Sensor Averaging
 
-**Indoor Humidity**: Averages readings from sensors on both floors for accurate whole-house measurement. Falls back gracefully if one sensor is unavailable.
+**Indoor Humidity**: Averages readings from sensors on both floors for accurate whole-house measurement. If one sensor drops offline, it uses the other. If both are offline, the sensor goes `unavailable` and the automation does nothing.
 
-**Outdoor Temperature**: Averages readings from five local Ambient Weather Network stations to minimize impact of microclimate variations or sensor errors.
+**Outdoor Temperature**: Averages readings from five local Ambient Weather Network stations, skipping any that are offline. A real 0°F reading still counts. The target then uses a 1-hour rolling mean of that average.
 
 ### Control Logic
 
@@ -255,10 +282,29 @@ For visibility, I use an ApexCharts card in Home Assistant to trend the whole-ho
 
 The chart in `Humidity_chart.yaml` is set up to:
 - Show outside temperature, plot upstairs and downstairs humidity on the same graph
+- Draw the calculated target as a dashed gray line, so you can see how closely each floor tracks it
 - Show daily context with clear min/max swings
 - Make tuning the deadband and target thresholds obvious from the line separation
 
 ![Humidity chart](docs/images/Humidity_graph.png)
+
+## Shelly failsafe settings
+
+Home Assistant only tells the Shelly what to do. If Home Assistant crashes or loses Wi-Fi while the relay is on, the relay stays on. Set these 2 options in the Shelly's own web page (open its IP address in a browser, then go to the output settings):
+
+- **Power-on default: Off.** After a power outage the relay comes back off, and Home Assistant turns it on again if needed.
+- **Auto-off timer: 60 minutes.** The relay shuts itself off after 60 minutes no matter what. The automation re-checks every 5 minutes and turns it back on if humidity is still low, so in normal operation you'll lose a few minutes of humidifying at most.
+
+The wiring already limits the damage, since water can only flow during a heat call. These settings cover the case where the furnace runs for hours and Home Assistant isn't there to shut the water off.
+
+## Safety
+
+- Turn off power to the furnace at its switch or breaker before touching any wiring. The control wiring is low voltage (24V AC), but the furnace itself runs on 120V.
+- Shut off the water supply before tapping the line, and check every fitting for leaks after the first few heat cycles.
+- Pour a bucket of water through the drain path before relying on it. A blocked drain or failed condensate pump will put water on the floor.
+- Follow Aprilaire's installation instructions and your local codes. If you aren't comfortable with HVAC wiring or plumbing, hire a pro.
+
+This is a description of my own install, offered as-is. You're responsible for your own system.
 
 ## Results
 
@@ -308,7 +354,7 @@ Feel free to open issues or submit pull requests if you have suggestions for imp
 
 ## License
 
-This project is provided as-is for educational and personal use.
+Released under the [MIT License](LICENSE). Use it, change it and share it.
 
 ---
 
