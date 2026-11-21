@@ -1,6 +1,6 @@
-# Convert an Aprilaire 400 to a 600 (plus optional Home Assistant control
+# Convert an Aprilaire 400 to a 600 (plus optional Home Assistant control)
 
-A smart home automation project that converts an Aprilaire 400 humidifier to Aprilaire 600 functionality with intelligent, temperature-based humidity control using Home Assistant.
+Convert an Aprilaire 400 waterless bypass humidifier to Aprilaire 600 flow-through operation using the AprilAire 4839 maintenance kit, a hot water feed, and a drain line. You can keep your existing humidistat, or optionally replace it with Home Assistant smart control that dynamically adjusts target humidity based on outdoor temperature.
 
 ## Table of Contents
 - [Overview](#overview)
@@ -8,6 +8,8 @@ A smart home automation project that converts an Aprilaire 400 humidifier to Apr
 - [The Solution](#the-solution)
 - [Hardware Requirements](#hardware-requirements)
 - [Installation](#installation)
+  - [Part 1: Hardware Conversion (400 to 600)](#part-1-hardware-conversion-400-to-600)
+  - [Part 2: Optional Home Assistant Smart Control](#part-2-optional-home-assistant-smart-control)
 - [Home Assistant Configuration](#home-assistant-configuration)
 - [How It Works](#how-it-works)
 - [ApexCharts Humidity Tracking](#apexcharts-humidity-tracking)
@@ -18,57 +20,63 @@ A smart home automation project that converts an Aprilaire 400 humidifier to Apr
 
 ## Overview
 
-This project replaces the mechanical humidistat on an Aprilaire whole-house humidifier with smart automation that dynamically adjusts target humidity levels based on outdoor temperature. The system uses multiple temperature sensors for accuracy and implements automated control with deadband logic to prevent short-cycling.
+This guide has two parts:
+
+1. **Hardware conversion (400 → 600)**: Upgrade an Aprilaire 400 bypass humidifier to Aprilaire 600 flow-through operation with the 4839 maintenance kit, a drain line, and a hot water feed. If you just want better humidification performance, you can stop after Part 1 and keep your existing humidistat.
+2. **Optional Home Assistant smart control**: Replace the mechanical humidistat with a Shelly dry-contact relay, indoor Zigbee humidity sensors, and outdoor weather data so Home Assistant dynamically adjusts target humidity based on outdoor temperature using deadband logic to prevent short-cycling.
 
 ## The Problem
 
 On the forced hot-air furnace, the Aprilaire 400 humidifier was unable to maintain proper indoor humidity levels during winter months. This was due to two main factors:
 
-1. **Design limitations**: The bypass design of the 400 series has lower capacity compared to the 600 series
-2. **Hard water buildup**: Mineral deposits on the water panel reduced effectiveness over time, further limiting performance
+1. **Waterless (wicking) design limitations**: Both the Aprilaire 400 and 600 are bypass humidifiers, but the 400 is a waterless, float-controlled wicking design with no drain. That limits evaporation capacity compared to the 600's flow-through design.
+2. **Hard water buildup**: Because water sits and evaporates out of the panel instead of flushing to a drain, mineral deposits build up quickly on the #45 water panel and further limit performance over time.
 
 ## The Solution
 
-The solution involved both a hardware upgrade and complete automation of humidity control:
+The solution is split into a hardware upgrade and an optional smart automation layer:
 
-### Hardware Upgrade
-- Convert Aprilaire 400 to 600 functionality using the **[AprilAire 4839 Maintenance Kit](docs/images/aprilaire-4839-maintenance-kit.png)**
+### Part 1: Hardware Upgrade (400 → 600)
+- Convert Aprilaire 400 waterless operation to Aprilaire 600 flow-through operation using the **[AprilAire 4839 Maintenance Kit](docs/images/aprilaire-4839-maintenance-kit.png)**
 - Install a drain line for continuous water flow (1" OD PVC)
-- If draining to condensate pump, you may need to relocate condensate pump lower to achieve proper drainage slope
-- Replace mechanical humidistat with smart relay control
+- Move the water supply to the hot water line for better evaporation
+- If draining to a condensate pump, relocate the pump lower if needed to achieve proper drainage slope
+- Note: Future replacement water panels change from **#45** (Aprilaire 400) to **#35** (Aprilaire 600)
 
-### Smart Automation
-- Install multiple sensors for accurate humidity and temperature readings
+### Part 2: Optional Home Assistant Smart Control
+- Replace the mechanical humidistat with a Shelly dry-contact relay
+- Install multiple sensors for accurate whole-house humidity and outdoor temperature readings
 - Calculate optimal indoor humidity based on outdoor temperature
-- Automate humidifier operation with intelligent control logic
+- Automate humidifier operation with deadband control logic
 
 ## Hardware Requirements
 
-### Humidifier Components
+### Humidifier Conversion Components (Required)
 - Aprilaire 400 (existing humidifier)
-- **[AprilAire 4839 Maintenance Kit](docs/images/aprilaire-4839-maintenance-kit.png)** (converts 400 to 600 functionality)
+- **[AprilAire 4839 Maintenance Kit](docs/images/aprilaire-4839-maintenance-kit.png)** (converts 400 to 600 flow-through operation; future replacement water panels change from #45 to #35)
 - 1" OD PVC pipe for drain line and needed connections (90 and/or 45)
 - Condensate pump relocation (if needed for slope and if no nearby floor drain available)
 - Saddle valve or T-valve for hot water connection
 
-### Smart Home Components
+### Smart Home Components (Optional — Home Assistant Control)
 - **Shelly 1 Gen4** Wi-Fi/Zigbee/Matter Smart Relay Switch with dry contacts
 - **12V 2A Power Adapter** (to power the Shelly relay)
 - **(2) SONOFF SNZB-02P** Zigbee Temperature/Humidity Sensors
 - Home Assistant server with Zigbee coordinator
 
-### Weather Data
+### Weather Data (Optional — Home Assistant Control)
 - Access to **Ambient Weather Network** or similar local weather station data
 - Multiple stations recommended for averaging (this project uses 5 local stations)
 
 ## Installation
 
-### Physical Installation
+### Part 1: Hardware Conversion (400 to 600)
 
 1. **Install [AprilAire 4839 Maintenance Kit](docs/images/aprilaire-4839-maintenance-kit.png)**
    - Follow AprilAire instructions to convert your 400 to 600 configuration
       - This is straight forward as it is simply replacing the internal frame of the water panel, and installing the drain which is a small insert.
-   - This enables continuous water flow operation
+   - This enables continuous flow-through operation
+   - **Water panel note**: Going forward, your converted unit uses **AprilAire #35** replacement water panels instead of #45.
 
 2. **Install Drain Line**
    - Run 1" OD PVC from humidifier to drain
@@ -83,11 +91,17 @@ The solution involved both a hardware upgrade and complete automation of humidit
    - Lower the condensate pump position to achieve proper drainage slope from humidifier
    - This step may not be necessary if you have a conveniently located floor drain
 
-5. **Remove Mechanical Humidistat**
+> **Keeping your original humidistat?** You can stop here. Check for leaks and test drain flow (see [Safety](#safety)), then run the converted 600 with your existing humidistat. Continue to Part 2 below if you want to add Home Assistant automation.
+
+### Part 2: Optional Home Assistant Smart Control
+
+#### Wiring & Sensors
+
+1. **Remove Mechanical Humidistat**
    - Disconnect the existing Aprilaire humidistat
    - This will be replaced by the Shelly relay
 
-6. **Install Shelly 1 Gen4 Relay**
+2. **Install Shelly 1 Gen4 Relay**
    - Wire the Shelly relay to control the humidifier water solenoid valve
       - The Shelly's dry contact switches the heat-call signal (W1/B on the EWC Ultra-Zone NCM-300 zone panel) to the water solenoid. Common (C) connects directly to the solenoid return.
       - The solenoid only opens when the furnace is calling for heat AND Home Assistant calls for humidity.
@@ -96,11 +110,11 @@ The solution involved both a hardware upgrade and complete automation of humidit
    - Configure for dry contact operation
    - Integrate with Home Assistant
 
-7. **Install Humidity Sensors**
+3. **Install Humidity Sensors**
    - Mount one SONOFF SNZB-02P sensor centrally on each floor (upstairs and downstairs)
    - Pair sensors with your Zigbee coordinator
 
-### Home Assistant Integration
+#### Home Assistant Integration
 
 1. **Add Shelly Relay to Home Assistant**
    - The relay should appear as `switch.furnace_humidity_control` (or customize as needed)
@@ -327,7 +341,7 @@ Potential next steps include:
 ## Lessons Learned
 
 ### Hard Water Considerations
-Hard water was a contributing factor to the original Aprilaire 400's poor performance. Even with the upgrade to 600 functionality, monitor the water panel for mineral deposits and replace as needed per manufacturer recommendations.
+Hard water was a contributing factor to the original Aprilaire 400's poor performance. Even with the upgrade to 600 flow-through functionality, monitor the #35 water panel for mineral deposits and replace as needed per manufacturer recommendations.
 
 ### Drainage Is Critical
 When installing the drain line, proper slope is essential. If you don't have a nearby floor drain:
