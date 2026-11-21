@@ -32,7 +32,7 @@ On the forced hot-air furnace, the Aprilaire 400 humidifier was unable to mainta
 The solution involved both a hardware upgrade and complete automation of humidity control:
 
 ### Hardware Upgrade
-- Convert Aprilaire 400 to 600 functionality using the **AprilAire 4839 Maintenance Kit**
+- Convert Aprilaire 400 to 600 functionality using the **[AprilAire 4839 Maintenance Kit](docs/images/aprilaire-4839-maintenance-kit.png)**
 - Install a drain line for continuous water flow (1" OD PVC)
 - If draining to condensate pump, you may need to relocate condensate pump lower to achieve proper drainage slope
 - Replace mechanical humidistat with smart relay control
@@ -46,7 +46,7 @@ The solution involved both a hardware upgrade and complete automation of humidit
 
 ### Humidifier Components
 - Aprilaire 400 (existing humidifier)
-- **AprilAire 4839 Maintenance Kit** (converts 400 to 600 functionality)
+- **[AprilAire 4839 Maintenance Kit](docs/images/aprilaire-4839-maintenance-kit.png)** (converts 400 to 600 functionality)
 - 1" OD PVC pipe for drain line and needed connections (90 and/or 45)
 - Condensate pump relocation (if needed for slope and if no nearby floor drain available)
 - Saddle valve or T-valve for hot water connection
@@ -65,7 +65,7 @@ The solution involved both a hardware upgrade and complete automation of humidit
 
 ### Physical Installation
 
-1. **Install AprilAire 4839 Maintenance Kit**
+1. **Install [AprilAire 4839 Maintenance Kit](docs/images/aprilaire-4839-maintenance-kit.png)**
    - Follow AprilAire instructions to convert your 400 to 600 configuration
       - This is straight forward as it is simply replacing the internal frame of the water panel, and installing the drain which is a small insert.
    - This enables continuous water flow operation
